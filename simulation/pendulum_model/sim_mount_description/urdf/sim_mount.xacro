@@ -1,0 +1,90 @@
+<?xml version="1.0" ?>
+<robot name="sim_mount" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<xacro:include filename="../urdf/materials.xacro" />
+<xacro:include filename="../urdf/sim_mount.trans" />
+<xacro:include filename="../urdf/sim_mount.gazebo" />
+
+<!-- BASE LINK -->
+<link name="base_link">
+  <inertial>
+    <origin xyz="-0.0008958 0.0007694 0.0041098" rpy="0 0 0"/>
+    <mass value="1.00914657"/>
+    <inertia ixx="0.004215" iyy="0.00418" izz="0.004598" ixy="-2.7e-05" iyz="3.9e-05" ixz="-4.1e-05"/>
+  </inertial>
+  <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="../meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+    <material name="silver"/>
+  </visual>
+  <collision>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="../meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+  </collision>
+</link>
+
+<!-- TURNTABLE PLATE -->
+<link name="plate_1">
+  <inertial>
+    <origin xyz="0.0 0.0 0.0058" rpy="0 0 0"/>
+    <mass value="0.170205"/>
+    <inertia ixx="0.000143" iyy="0.000137" izz="0.000261" ixy="0" iyz="0" ixz="0"/>
+  </inertial>
+  <visual>
+    <origin xyz="0.0 0.0 -0.086736" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="../meshes/plate_1.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+    <material name="silver"/>
+  </visual>
+  <collision>
+    <origin xyz="0.0 0.0 -0.086736" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="../meshes/plate_1.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+  </collision>
+</link>
+
+<!-- PENDULUM SHAFT / ARM (MATCHED TO EXACT STL VERTICES) -->
+<link name="main_shaft_1">
+  <inertial>
+    <origin xyz="0.0830 0.0 0.0" rpy="0 0 0"/>
+    <mass value="0.038773"/>
+    <inertia ixx="7.9e-05" iyy="9.6e-05" izz="0.000175" ixy="5.1e-05" iyz="0.0" ixz="0.0"/>
+  </inertial>
+  <visual>
+    <origin xyz="0.0 0.000027 -0.119726" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="../meshes/main_shaft_1.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+    <material name="silver"/>
+  </visual>
+  <collision>
+    <origin xyz="0.0 0.000027 -0.119726" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="../meshes/main_shaft_1.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+  </collision>
+</link>
+
+<!-- JOINT 1: Base to Plate -->
+<joint name="base_to_plate" type="continuous">
+  <origin xyz="0.0 0.0 0.086736" rpy="0 0 0"/>
+  <parent link="base_link"/>
+  <child link="plate_1"/>
+  <axis xyz="0.0 0.0 1.0"/>
+</joint>
+
+<!-- JOINT 2: Plate to Shaft (EXACT CAD AXIS: 32.990 mm) -->
+<joint name="plate_to_shaft" type="continuous">
+  <origin xyz="0.0 -0.000027 0.032990" rpy="0 0 0"/>
+  <parent link="plate_1"/>
+  <child link="main_shaft_1"/>
+  <axis xyz="1.0 0.0 0.0"/>
+</joint>
+
+</robot>

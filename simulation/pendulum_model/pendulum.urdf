@@ -1,0 +1,109 @@
+<?xml version="1.0" ?>
+<robot name="sim_mount">
+  <material name="silver">
+    <color rgba="0.700 0.700 0.700 1.000"/>
+  </material>
+  <transmission name="base_to_plate_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="base_to_plate">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="base_to_plate_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+  <transmission name="plate_to_shaft_tran">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="plate_to_shaft">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="plate_to_shaft_actr">
+      <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+  <gazebo>
+    <plugin filename="libgazebo_ros_control.so" name="control"/>
+  </gazebo>
+  <gazebo reference="base_link">
+    <material>Gazebo/Silver</material>
+    <mu1>0.2</mu1><mu2>0.2</mu2>
+    <self_collide>true</self_collide>
+    <gravity>true</gravity>
+  </gazebo>
+  <gazebo reference="plate_1">
+    <material>Gazebo/Silver</material>
+    <mu1>0.2</mu1><mu2>0.2</mu2>
+    <self_collide>true</self_collide>
+  </gazebo>
+  <gazebo reference="main_shaft_1">
+    <material>Gazebo/Silver</material>
+    <mu1>0.2</mu1><mu2>0.2</mu2>
+    <self_collide>true</self_collide>
+  </gazebo>
+
+  <link name="base_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <mass value="1.009146571933961"/>
+      <inertia ixx="0.004215" ixy="-2.7e-05" ixz="-4.1e-05" iyy="0.00418" iyz="3.9e-05" izz="0.004598"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry><mesh filename="sim_mount_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/></geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry><mesh filename="sim_mount_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+
+  <link name="plate_1">
+    <inertial>
+      <origin rpy="0 0 0" xyz="6.43965911757172e-05 0.051762363407853555 0.14931650889172735"/>
+      <mass value="0.1702050528268957"/>
+      <inertia ixx="0.000143" ixy="-0.0" ixz="-0.0" iyy="0.000137" iyz="0.0" izz="0.000261"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.0 0.051789 0.056764"/>
+      <geometry><mesh filename="sim_mount_description/meshes/plate_1.stl" scale="0.001 0.001 0.001"/></geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0.0 0.051789 0.056764"/>
+      <geometry><mesh filename="sim_mount_description/meshes/plate_1.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+
+  <link name="main_shaft_1">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.08302045888937093 0.09282474244214037 0.1764404946383836"/>
+      <mass value="0.03877307343143694"/>
+      <inertia ixx="7.9e-05" ixy="5.1e-05" ixz="-0.0" iyy="9.6e-05" iyz="0.0" izz="0.000175"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.0056 0.119753 0.056714"/>
+      <geometry><mesh filename="sim_mount_description/meshes/main_shaft_1.stl" scale="0.001 0.001 0.001"/></geometry>
+      <material name="silver"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.0056 0.119753 0.056714"/>
+      <geometry><mesh filename="sim_mount_description/meshes/main_shaft_1.stl" scale="0.001 0.001 0.001"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="base_to_plate" type="continuous">
+    <origin rpy="0 0 0" xyz="0.0 -0.051789 -0.056764"/>
+    <parent link="base_link"/>
+    <child link="plate_1"/>
+    <axis xyz="0.0 0.0 1.0"/>
+  </joint>
+  <joint name="plate_to_shaft" type="continuous">
+    <origin rpy="0 0 0" xyz="0.0056 -0.067964 5e-05"/>
+    <parent link="plate_1"/>
+    <child link="main_shaft_1"/>
+    <axis xyz="-1.0 -0.0 -0.0"/>
+  </joint>
+</robot>
