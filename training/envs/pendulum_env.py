@@ -122,17 +122,19 @@ class FurutaEnv(gym.Env):
         """
         cos_theta = obs[1]
         pendulum_vel = obs[2]
+        motor_pos = obs[3]
         motor_vel = obs[4]
         
         # Reward for being upright (cos(theta) == 1 when fully upright)
         reward_upright = cos_theta 
         
-        # Penalties for excessive speeds and large action outputs
+        # Penalties for excessive speeds, motor displacement and large action outputs
         penalty_pendulum_vel = 0.05 * abs(pendulum_vel)
         penalty_motor_vel = 0.01 * abs(motor_vel)
+        penalty_motor_pos = 0.01 * abs(motor_pos)
         penalty_action = 0.01 * abs(action[0])
         
-        return float(reward_upright - penalty_pendulum_vel - penalty_motor_vel - penalty_action)
+        return float(reward_upright - penalty_pendulum_vel - penalty_motor_pos - penalty_motor_vel - penalty_action)
 
     def close(self):
         """
