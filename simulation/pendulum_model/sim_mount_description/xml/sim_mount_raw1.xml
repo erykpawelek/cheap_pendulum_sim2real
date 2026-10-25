@@ -1,0 +1,76 @@
+<mujoco model="sim_mount_precise">
+  <!-- Compiler settings for MuJoCo to handle provided inertias -->
+  <compiler angle="radian" balanceinertia="true"/>
+
+  <!-- Simulation options: 0.5 ms timestep, RK4 integrator for numerical stability -->
+  <option timestep="0.0005" integrator="RK4" gravity="0 0 -9.81"/>
+
+  <default>
+    <!-- Default geom properties: visual only, collisions disabled by default -->
+    <geom contype="0" conaffinity="0"/>
+  </default>
+
+  <asset>
+    <!-- 
+      Loading .obj files based on the project structure.
+      The scale parameter is removed because the meshes are exported in meters.
+    -->
+    <mesh name="bottom_assembly" content_type="model/obj" file="../meshes/precise/Bottom_assembly_precise v2.obj"/>
+    <mesh name="motor_shaft" content_type="model/obj" file="../meshes/precise/Moror_shaft_precise_assembly v4.obj"/>
+    <mesh name="pendulum" content_type="model/obj" file="../meshes/precise/Pendulum_assembly_precise v2.obj"/>
+  </asset>
+
+  <worldbody>
+    <!-- 
+      Static base link (stator/bottom mount).
+      Bodies and geoms without 'pos' attribute default to absolute zero (0 0 0).
+    -->
+    <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="bottom_assembly"/>
+
+    <body name="motor_shaft">
+      <!-- Direct paste from Fusion 360 calculations -->
+      <inertial pos="0.000001 -0.00335 0.152685" mass="0.06935" 
+                fullinertia="5.470821e-05 5.540892e-05 9.427138e-05 1.948e-09 -2.038e-09 2.274404e-06"/>
+      
+      <!-- 
+        Motor hinge joint (Z-axis). 
+        'pos' explicitly defines the rotation point in absolute space (extracted from previous file).
+      -->
+      <joint name="base_to_plate" type="hinge" axis="0 0 1" pos="0 0 0.086736" 
+             armature="5.4e-6" damping="5e-4" frictionloss="3e-3"/>
+      
+      <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="motor_shaft"/>
+
+      <body name="pendulum">
+        <!-- Direct paste from Fusion 360 calculations -->
+        <inertial pos="-0.00000002029 0.095625 0.14574" mass="0.019346" 
+                  fullinertia="8.778821e-05 4.261985e-05 4.550348e-05 2.6e-11 -6.7e-11 2.332873e-05"/>
+        
+        <!-- 
+          Pendulum hinge joint (X-axis). 
+          Absolute global 'pos' computed by adding the original relative offsets: 
+          0.086736 (plate Z) + 0.03299 (shaft Z) = 0.119726 Z.
+        -->
+        <joint name="plate_to_shaft" type="hinge" axis="1 0 0" pos="0 -0.000027 0.119726" 
+               damping="1e-4" frictionloss="5e-4"/>
+        
+        <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="pendulum"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Stepper motor control limits applied to the base_to_plate joint -->
+    <motor name="stepper" joint="base_to_plate"
+           ctrllimited="true" ctrlrange="-0.45 0.45"
+           forcelimited="true" forcerange="-0.45 0.45"/>
+  </actuator>
+
+  <sensor>
+    <!-- Position and velocity sensors for control loop feedback -->
+    <jointpos name="motor_pos" joint="base_to_plate" noise="0.0005"/>
+    <jointvel name="motor_vel" joint="base_to_plate" noise="0.01"/>
+    <jointpos name="pend_pos"  joint="plate_to_shaft" noise="0.001"/>
+    <jointvel name="pend_vel"  joint="plate_to_shaft" noise="0.02"/>
+  </sensor>
+</mujoco>
