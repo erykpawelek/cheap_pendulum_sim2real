@@ -1,0 +1,60 @@
+<mujoco model="sim_mount">
+  <!-- balanceinertia: CAD-exported shaft inertia violates A+B>=C by ~3e-10 (rounding) -->
+  <compiler angle="radian" balanceinertia="true"/>
+
+  <!-- 0.5 ms + RK4: the stepper's magnetic spring (~20 N·m/rad) is stiff vs. plate inertia -->
+  <option timestep="0.0005" integrator="RK4" gravity="0 0 -9.81"/>
+
+  <default>
+    <!-- visual meshes only, no collisions between parts -->
+    <geom contype="0" conaffinity="0"/>
+  </default>
+
+  <asset>
+    <mesh name="base_link" content_type="model/stl" file="../meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="plate_1" content_type="model/stl" file="../meshes/plate_1.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="main_shaft_1" content_type="model/stl" file="../meshes/main_shaft_1.stl" scale="0.001 0.001 0.001"/>
+  </asset>
+
+  <worldbody>
+    <!-- Base + motor stator (static: the 280 g motor body is part of base_link) -->
+    <geom type="mesh" rgba="0.7 0.7 0.7 1" mesh="base_link"/>
+
+    <body name="plate_1" pos="0 0 0.086736">
+      <inertial pos="0 0 0.0058" quat="0.5 0.5 -0.5 0.5" mass="0.170205" diaginertia="0.000261 0.000143 0.000137"/>
+
+      <!--
+        Motor: Hanpose 17HS4401 (NEMA17, 40 mm), from datasheet
+          step angle 1.8 deg | 1.5 A/phase | 1.5 ohm | 2.8 mH
+          holding torque 40 N.cm = 0.40 N.m | detent 2.2 N.cm = 0.022 N.m
+          rotor inertia 54 g.cm2 = 5.4e-6 kg.m2 | 280 g
+        armature   = rotor inertia (seen by the plate joint)
+        damping / frictionloss = motor bearing drag: PLACEHOLDERS, tune from tests
+      -->
+      <joint name="base_to_plate" type="hinge" axis="0 0 1"
+             armature="5.4e-6" damping="5e-4" frictionloss="3e-3"/>
+
+      <geom pos="0 0 -0.086736" quat="1 0 0 0" type="mesh" rgba="0.7 0.7 0.7 1" mesh="plate_1"/>
+
+      <body name="main_shaft_1" pos="0 -2.7e-05 0.03299">
+        <joint name="plate_to_shaft" type="hinge" axis="1 0 0" damping="1e-4" frictionloss="5e-4"/>
+        <geom pos="0 2.7e-05 -0.119726" type="mesh" mesh="main_shaft_1" mass="0.038773" rgba="0.7 0.7 0.7 1"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Torque is computed each step by stepper_motor.py (sine torque, speed droop, cogging).
+         Range = holding torque + a little headroom for the detent term. -->
+    <motor name="stepper" joint="base_to_plate"
+           ctrllimited="true" ctrlrange="-0.45 0.45"
+           forcelimited="true" forcerange="-0.45 0.45"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="motor_pos" joint="base_to_plate" noise="0.0005"/>
+    <jointvel name="motor_vel" joint="base_to_plate" noise="0.01"/>
+    <jointpos name="pend_pos"  joint="plate_to_shaft" noise="0.001"/>
+    <jointvel name="pend_vel"  joint="plate_to_shaft" noise="0.02"/>
+  </sensor>
+</mujoco>
