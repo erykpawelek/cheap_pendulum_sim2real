@@ -55,3 +55,5 @@ Conversion factors applied to the raw Fusion 360 export (g, mm, g·mm²):
 ## Geometric build
 
 ![Orgin to joint](Origin_to_joint_dist.png)
+
+![Orgin to joint](Origin_to_joint_dist_2.png)
