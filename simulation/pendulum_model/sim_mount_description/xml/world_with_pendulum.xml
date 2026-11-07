@@ -1,0 +1,94 @@
+<mujoco model="sim_mount_precise">
+  <!-- Compiler settings for MuJoCo to handle provided inertias -->
+  <compiler angle="radian" balanceinertia="true"/>
+
+  <!-- Simulation options: 0.5 ms timestep, RK4 integrator for numerical stability -->
+  <option timestep="0.0005" integrator="RK4" gravity="0 0 -9.81"/>
+
+  <!-- Visual rendering settings: high-res shadows, ambient light, and subtle fog -->
+  <visual>
+    <headlight ambient="0.3 0.3 0.3" diffuse="0.6 0.6 0.6" specular="0.1 0.1 0.1"/>
+    <quality shadowsize="4096" offsamples="4"/>
+    <map znear="0.01" zfar="10.0"/>
+  </visual>
+
+  <default>
+    <!-- Default geom properties: visual only, collisions disabled by default -->
+    <geom contype="0" conaffinity="0"/>
+  </default>
+
+  <asset>
+    <!-- Procedural skybox gradient for a clean studio background -->
+    <texture type="skybox" builtin="gradient" rgb1="0.25 0.30 0.38" rgb2="0.05 0.07 0.10" width="512" height="512"/>
+    
+    <!-- Procedural checkerboard texture and reflective material for the floor -->
+    <texture name="grid_tex" type="2d" builtin="checker" width="512" height="512" rgb1="0.15 0.18 0.22" rgb2="0.22 0.26 0.30" mark="edge" markrgb="0.35 0.40 0.45"/>
+    <material name="floor_mat" texture="grid_tex" texrepeat="8 8" texuniform="true" reflectance="0.15" shininess="0.3" specular="0.2"/>
+
+    <!-- Distinct materials for each assembly part to improve visual contrast -->
+    <material name="base_mat" rgba="0.22 0.24 0.27 1" specular="0.3" shininess="0.4"/>
+    <material name="arm_mat" rgba="0.78 0.80 0.82 1" specular="0.7" shininess="0.8"/>
+    <material name="pendulum_mat" rgba="0.90 0.32 0.15 1" specular="0.5" shininess="0.6"/>
+
+    <!-- 
+      Loading .stl files based on the project structure.
+      Updated content_type to model/stl to match the file extensions.
+    -->
+    <mesh name="bottom_assembly" content_type="model/stl" file="../meshes/precise/Bottom_assembly_precise v3.stl"/>
+    <mesh name="motor_shaft" content_type="model/stl" file="../meshes/precise/Moror_shaft_precise_assembly v5.stl"/>
+    <mesh name="pendulum" content_type="model/stl" file="../meshes/precise/Pendulum_assembly_precise v3.stl"/>
+  </asset>
+
+  <worldbody>
+    <!-- Main directional light casting shadows onto the floor and secondary fill light -->
+    <light name="top_light" pos="0.4 -0.6 1.2" dir="-0.3 0.5 -1" directional="true" castshadow="true" diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3"/>
+    <light name="fill_light" pos="-0.5 0.5 0.8" dir="0.4 -0.4 -0.8" directional="true" castshadow="false" diffuse="0.3 0.3 0.35"/>
+
+    <!-- Infinite ground plane at Z=0 using the reflective grid material -->
+    <geom name="floor" type="plane" pos="0 0 0" size="2 2 0.1" material="floor_mat"/>
+
+    <!-- Static base link (dark graphite finish) -->
+    <geom type="mesh" material="base_mat" mesh="bottom_assembly"/>
+
+    <body name="motor_shaft">
+      <!-- Direct paste from Fusion 360 calculations -->
+      <inertial pos="0.000001 -0.00335 0.152685" mass="0.06935" 
+                fullinertia="5.470821e-05 5.540892e-05 9.427138e-05 1.948e-09 -2.038e-09 2.274404e-06"/>
+      
+      <!-- Motor hinge joint (Z-axis) -->
+      <joint name="base_to_plate" type="hinge" axis="0 0 1" pos="0 0 0.086736" 
+             armature="5.4e-6" damping="5e-4" frictionloss="3e-3"/>
+      
+      <!-- Rotating arm / shaft (metallic silver finish) -->
+      <geom type="mesh" material="arm_mat" mesh="motor_shaft"/>
+
+      <body name="pendulum">
+        <!-- Direct paste from Fusion 360 calculations -->
+        <inertial pos="-0.00000002029 0.095625 0.14574" mass="0.019346" 
+                  fullinertia="8.778821e-05 4.261985e-05 4.550348e-05 2.6e-11 -6.7e-11 2.332873e-05"/>
+        
+        <!-- Pendulum hinge joint (Y-axis) -->
+        <joint name="plate_to_shaft" type="hinge" axis="0 1 0" pos="0 0.00000 0.17637574079" 
+               damping="1e-4" frictionloss="5e-4"/>
+        
+        <!-- Pendulum link (high-contrast orange-red finish for easy tracking) -->
+        <geom type="mesh" material="pendulum_mat" mesh="pendulum"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Stepper motor control limits applied to the base_to_plate joint -->
+    <motor name="stepper" joint="base_to_plate"
+           ctrllimited="true" ctrlrange="-0.45 0.45"
+           forcelimited="true" forcerange="-0.45 0.45"/>
+  </actuator>
+
+  <sensor>
+    <!-- Position and velocity sensors for control loop feedback -->
+    <jointpos name="motor_pos" joint="base_to_plate" noise="0.0005"/>
+    <jointvel name="motor_vel" joint="base_to_plate" noise="0.01"/>
+    <jointpos name="pend_pos"  joint="plate_to_shaft" noise="0.001"/>
+    <jointvel name="pend_vel"  joint="plate_to_shaft" noise="0.02"/>
+  </sensor>
+</mujoco>
