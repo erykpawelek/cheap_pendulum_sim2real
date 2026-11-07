@@ -1,0 +1,65 @@
+# ---------- Python bytecode & caches ----------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---------- Python packaging / builds ----------
+*.egg
+*.egg-info/
+build/
+dist/
+*.whl
+
+# ---------- Virtual environments ----------
+.venv/
+venv/
+env/
+ENV/
+
+# ---------- Tooling caches ----------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.ipynb_checkpoints/
+
+# ---------- Test / coverage artifacts ----------
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# ---------- Trained model artifacts (large binaries) ----------
+# Keep the models/ directory itself via its .gitkeep, but ignore its contents.
+models/*
+!models/.gitkeep
+*.onnx
+*.zip
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# ---------- RL training run logs ----------
+wandb/
+runs/
+tensorboard/
+logs/
+*.log
+
+# ---------- Environment / secrets ----------
+.env
+.env.*
+!.env.example
+
+# ---------- OS generated files ----------
+.DS_Store
+Thumbs.db
+
+# ---------- IDE / editor ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
