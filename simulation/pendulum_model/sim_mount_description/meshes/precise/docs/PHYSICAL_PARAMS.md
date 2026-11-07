@@ -51,3 +51,7 @@ Conversion factors applied to the raw Fusion 360 export (g, mm, g·mm²):
 <inertial pos="-0.00000002029 0.095625 0.14574" mass="0.019346"
            fullinertia="8.778821e-05 4.261985e-05 4.550348e-05 2.6e-11 -6.7e-11 2.332873e-05"/>
 ```
+
+## Geometric build
+
+![Orgin to joint](Origin_to_joint_dist.png)
