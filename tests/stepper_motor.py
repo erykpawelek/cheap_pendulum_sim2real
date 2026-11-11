@@ -1,7 +1,6 @@
 import numpy as np
 import mujoco
 
-
 #XML file
 PATH = "simulation/pendulum_model/sim_mount_description/xml/sim_mount_raw.xml"
 
