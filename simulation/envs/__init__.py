@@ -10,5 +10,5 @@ register(
     entry_point='simulation.envs.pendulum_env:FurutaEnv',
     
     # Automatically truncate the episode after this many steps to prevent infinite loops during training
-    max_episode_steps=1000,
+    max_episode_steps=2048,
 )

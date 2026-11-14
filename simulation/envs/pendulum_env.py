@@ -6,7 +6,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import mujoco
 
-import stepper_motor
+from . import stepper_motor
 
 
 def get_default_xml_path() -> str:
@@ -36,7 +36,7 @@ class FurutaEnv(gym.Env):
     coupled with the physical NEMA 17 stepper motor model.
     """
     
-    metadata = {"render_modes": ["human"], "render_fps": 100}
+    metadata = {"render_modes": ["human"], "render_fps": 60}
 
     def __init__(
         self, 
@@ -115,7 +115,7 @@ class FurutaEnv(gym.Env):
         obs = self._get_obs()
         
         # Terminate episode early if the stepper motor stalled (lost steps)
-        terminated = bool(self.stepper.stalled) or abs(self.data.qpos[0]) > 2 * np.pi
+        terminated = bool(self.stepper.stalled or abs(self.data.qpos[0]) > 2 * np.pi)
         truncated = False
         
         # Compute reward (includes heavy penalty if stalled)
@@ -135,21 +135,31 @@ class FurutaEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
         """
-        Resets MuJoCo physics and synchronizes the internal stepper motor state.
+        Resets MuJoCo physics and uses hybrid state initialization to accelerate 
+        learning of both upright stabilization and full swing-up dynamics.
         """
         super().reset(seed=seed)
         
         # Reset MuJoCo data to initial XML state
         mujoco.mj_resetData(self.model, self.data)
         
-        # Add slight random perturbation to initial positions and velocities
+        # Small perturbation for the motor arm position and joint velocities
         qpos_noise = self.np_random.uniform(low=-0.05, high=0.05, size=self.model.nq)
         qvel_noise = self.np_random.uniform(low=-0.05, high=0.05, size=self.model.nv)
         
         self.data.qpos[:] = self.model.qpos0 + qpos_noise
+        
+        # Hybrid initialization: 50% near upright equilibrium (pi), 50% full circle
+        if self.np_random.random() < 0.5:
+            # Start near the top so the agent quickly discovers how to brake and balance
+            self.data.qpos[1] = np.pi + self.np_random.uniform(low=-0.3, high=0.3)
+        else:
+            # Start anywhere to learn the full swing-up trajectory
+            self.data.qpos[1] = self.np_random.uniform(low=-np.pi, high=np.pi)
+            
         self.data.qvel[:] = qvel_noise
         
-        # Synchronize stepper motor magnetic field with the randomized starting arm angle
+        # Synchronize stepper motor magnetic field with the starting arm angle
         self.stepper.reset(initial_theta=self.data.qpos[0])
         
         # Update MuJoCo kinematics
@@ -180,34 +190,40 @@ class FurutaEnv(gym.Env):
 
     def _compute_reward(self, obs, target_vel, stalled):
         """
-        Calculates step reward: rewards upright pendulum posture (angle = pi) 
-        while penalizing excessive velocities, arm drift, and stepper motor stall events.
+        Calculates a strictly non-negative reward in range [0.0, 1.0].
+        Uses multiplicative Gaussian kernels so high reward is granted ONLY when 
+        the pendulum is upright AND moving slowly.
         """
-        # Heavy penalty if the controller forces the stepper to lose steps
+        # If the stepper motor stalls, return 0.0 (no negative numbers, just zero gain)
         if stalled:
-            return -50.0
+            return 0.0
             
         cos_theta = obs[1]
         pendulum_vel = obs[2]
         motor_pos = obs[3]
         motor_vel = obs[4]
         
-        # Since 0 rad is hanging down (cos(0) = 1) and pi rad is balanced up (cos(pi) = -1),
-        # negating cos_theta yields +1.0 at the top and -1.0 at the bottom.
-        reward_upright = -cos_theta
+        # 1. Upright posture factor in range [0.0, 1.0]:
+        # Hanging down (cos = 1) -> 0.0; Horizontal (cos = 0) -> 0.25; Upright (cos = -1) -> 1.0.
+        # Squaring makes the reward slope much steeper near the top.
+        upright_factor = (0.5 * (1.0 - cos_theta)) ** 2
         
-        penalty_pendulum_vel = 0.05 * abs(pendulum_vel)
-        penalty_motor_vel = 0.01 * abs(motor_vel)
-        penalty_motor_pos = 0.01 * abs(motor_pos)
-        penalty_action = 0.01 * abs(target_vel)
+        # 2. Pendulum velocity damping factor in range (0.0, 1.0]:
+        # Equals 1.0 when stationary (vel = 0), drops rapidly Toward 0.0 when spinning fast.
+        vel_damping = np.exp(-0.08 * (pendulum_vel ** 2))
         
-        return float(
-            reward_upright 
-            - penalty_pendulum_vel 
-            - penalty_motor_pos 
-            - penalty_motor_vel 
-            - penalty_action
+        # 3. Smooth control and arm centering factor in range (0.0, 1.0]:
+        arm_damping = np.exp(
+            -0.05 * (motor_pos ** 2) 
+            - 0.005 * (motor_vel ** 2) 
+            - 0.002 * (target_vel ** 2)
         )
+        
+        # Base shaping (20% weight) guides the pendulum up regardless of speed,
+        # while the gated bonus (80% weight) requires the pendulum to STOP at the top.
+        reward = 0.2 * upright_factor + 0.8 * (upright_factor * vel_damping * arm_damping)
+        
+        return float(reward)
 
     def render(self):
         """
