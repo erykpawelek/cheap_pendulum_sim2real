@@ -7,8 +7,8 @@ import simulation.envs
 
 def main():
     env_id = "FurutaPendulum-v0"
-    model_path = "ppo_furuta_pendulum"
-    stats_path = "vec_normalize.pkl"
+    model_path = "training/logs/ppo_furuta_pendulum"
+    stats_path = "training/logs/vec_normalize.pkl"
 
     # Wrap the environment in a list to be compatible with DummyVecEnv
     eval_env = DummyVecEnv([lambda: gym.make(env_id, render_mode="human")])

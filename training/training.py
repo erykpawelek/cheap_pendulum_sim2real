@@ -11,8 +11,8 @@ import simulation.envs
 
 def main():
     env_id = "FurutaPendulum-v0"
-    model_path = "ppo_furuta_pendulum"
-    stats_path = "vec_normalize.pkl"
+    model_path = "training/logs/ppo_furuta_pendulum"
+    stats_path = "training/logs/vec_normalize.pkl"
 
     print("Initializing Furuta pendulum environment for compliance check...")
     raw_env = gym.make(env_id)
@@ -48,7 +48,7 @@ def main():
     )
 
     print("Starting PPO training process...")
-    model.learn(total_timesteps=600_000)
+    model.learn(total_timesteps=700_000)
     print("Training finished successfully!")
 
     # Save trained policy weights and observation normalization statistics
