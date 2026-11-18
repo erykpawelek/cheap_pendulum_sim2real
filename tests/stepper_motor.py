@@ -1,9 +1,8 @@
 import numpy as np
 import mujoco
 
-
 #XML file
-PATH = "simulation/pendulum_model/sim_mount_description/xml/sim_mount_raw.xml"
+PATH = "simulation/pendulum_model/sim_mount_description/xml/world_with_pendulum.xml"
 
 # ---- 17HS4401 datasheet --------------------------------------------------
 T_HOLD   = 0.40        # N·m   (40 N·cm)
