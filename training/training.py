@@ -32,6 +32,12 @@ def main():
         gamma=0.99,
     )
 
+    # Define custom MLP architecture: 2 hidden layers of 128 neurons each
+    # applied separately to both the Actor (pi) and Critic (vf) networks
+    policy_kwargs = dict(
+        net_arch=dict(pi=[128, 128], vf=[128, 128])
+    )
+
     # Initialize PPO model with 4 * 1024 = 4096 steps per rollout update
     model = PPO(
         policy="MlpPolicy",
@@ -43,6 +49,7 @@ def main():
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=0.2,
+        policy_kwargs=policy_kwargs,
         verbose=1,
         seed=42,
     )

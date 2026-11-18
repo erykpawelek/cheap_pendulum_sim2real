@@ -191,10 +191,10 @@ class FurutaEnv(gym.Env):
     def _compute_reward(self, obs, target_vel, stalled):
         """
         Calculates a strictly non-negative reward in range [0.0, 1.0].
-        Uses multiplicative Gaussian kernels so high reward is granted ONLY when 
-        the pendulum is upright AND moving slowly.
+        Uses tight multiplicative Gaussian kernels to prevent multiple rotations 
+        (windmill effect) and force crisp braking at the upright equilibrium.
         """
-        # If the stepper motor stalls, return 0.0 (no negative numbers, just zero gain)
+        # Return 0.0 immediately if the stepper motor loses synchronization
         if stalled:
             return 0.0
             
@@ -204,13 +204,13 @@ class FurutaEnv(gym.Env):
         motor_vel = obs[4]
         
         # 1. Upright posture factor in range [0.0, 1.0]:
-        # Hanging down (cos = 1) -> 0.0; Horizontal (cos = 0) -> 0.25; Upright (cos = -1) -> 1.0.
-        # Squaring makes the reward slope much steeper near the top.
+        # Hanging down (cos = 1) -> 0.0; Upright (cos = -1) -> 1.0.
         upright_factor = (0.5 * (1.0 - cos_theta)) ** 2
         
-        # 2. Pendulum velocity damping factor in range (0.0, 1.0]:
-        # Equals 1.0 when stationary (vel = 0), drops rapidly Toward 0.0 when spinning fast.
-        vel_damping = np.exp(-0.08 * (pendulum_vel ** 2))
+        # 2. Strict pendulum velocity damping in range (0.0, 1.0]:
+        # Increased decay from -0.08 to -0.3 so passing the top at 3 rad/s 
+        # drops the bonus to ~0.06 instead of ~0.48, forcing the agent to brake early.
+        vel_damping = np.exp(-0.3 * (pendulum_vel ** 2))
         
         # 3. Smooth control and arm centering factor in range (0.0, 1.0]:
         arm_damping = np.exp(
@@ -219,9 +219,9 @@ class FurutaEnv(gym.Env):
             - 0.002 * (target_vel ** 2)
         )
         
-        # Base shaping (20% weight) guides the pendulum up regardless of speed,
-        # while the gated bonus (80% weight) requires the pendulum to STOP at the top.
-        reward = 0.2 * upright_factor + 0.8 * (upright_factor * vel_damping * arm_damping)
+        # Reduced base shaping from 0.2 to 0.05 so spinning through the top gives almost 
+        # no free points, while 95% of the reward requires stopping at the upright position.
+        reward = 0.05 * upright_factor + 0.95 * (upright_factor * vel_damping * arm_damping)
         
         return float(reward)
 
