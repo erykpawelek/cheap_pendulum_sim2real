@@ -268,3 +268,60 @@ steps (20 s) at 50 Hz, resetting on episode end.
 | Velocity damping | $d_\mathrm{vel}$ | $\exp(-0.3\,\dot\theta^2)$ |
 | Arm damping | $d_\mathrm{arm}$ | $\exp(-0.05\phi^2 - 0.005\dot\phi^2 - 0.002u^2)$ |
 | Reward | $r$ | $0.05 f_\mathrm{up} + 0.95 f_\mathrm{up} d_\mathrm{vel} d_\mathrm{arm}$ |
+
+## 5. PPO Training Conclusions – Furuta Pendulum (MuJoCo + NEMA 17, 50 Hz)
+
+### a) Achieved Results (100-Episode Benchmark)
+
+Switching to a **50 Hz** control loop (`frame_skip=40`, `dt=0.02 s`, providing a comfortable compute margin for future Raspberry Pi deployment) and aligning the environment physics with PPO exploration resulted in full stability without motor chattering:
+
+| Metric | Final Result |
+|---|---|
+| **Success Rate (Settled >= 1s)** | **100.0 %** |
+| **Stepper Motor Stall Rate** | **0.0 %** |
+| **Mean Episode Return** | **920.03 +/- 64.01** (out of 1000 max) |
+| **Balanced Zone Angle RMSE** | **0.014 rad** (~0.8°) |
+| **Time Spent Upright (<11°)** | **95.5 %** |
+| **Bottom Swing-Up Time (sample episodes)** | **2.1 – 4.7 s** (smooth energy pumping) |
+
+*Methodological note: The reported mean settling time (1.48 s +/- 1.58 s) includes 50% of episodes initialized near the upright position by the training `reset()`. Measuring pure swing-up performance requires a dedicated evaluation starting 100% of episodes at the bottom dead center.*
+
+---
+
+### b) What Did Not Work and Why
+
+* **Additive velocity and action-rate penalties (`_compute_reward`):**
+  The 3D-printed pendulum has very low mass (19.35 g) and a short center-of-mass distance (3.06 cm). By conservation of energy, it requires approximately **19.6 rad/s** at the bottom to reach the upright position. Subtracting `0.02 * pendulum_vel^2` applied roughly `-8.0` penalty per step during physically necessary swing-up motion. Combined with a `-10.0` termination penalty and `action_rate_penalty`, freezing the motor at the bottom (`0.0` reward) became the mathematically optimal local strategy.
+* **Normalized action space `[-1.0, 1.0]` scaled by `MAX_SPEED = 15.0`:**
+  PPO's default initial exploration noise (`std = 1.0`) mapped directly to random **+/- 15 rad/s** velocity commands every 20 ms from step zero. This caused severe high-frequency chattering and forced artificial damping via penalties.
+* **gSDE exploration with low `log_std_init=-2.0` and `ent_coef=0.0`:**
+  A small initial standard deviation sharply increased KL divergence sensitivity (triggering frequent early stopping at epoch `step 0`). Without an entropy bonus, `std` collapsed to `0.0268` mid-training, freezing exploration in a poor local optimum.
+* **Bimodal `reset()` distribution (75% bottom / 25% upright):**
+  Removing intermediate angles broke the learning path. The policy only mastered the 25% of easy upright starts and failed to bridge the gap from rest at the bottom to upright stabilization.
+* **Unconstrained PPO updates (`n_epochs=10` without `target_kl`):**
+  Excessively aggressive updates on a single rollout buffer caused KL spikes (up to `0.17`) and sudden policy collapse.
+* **Combined termination diagnostics in `info["stalled"]`:**
+  Reporting both physical stepper pull-out (`stepper.stalled`) and arm rotation limit violations (`+/- 2*pi`) under a single flag obscured the real cause of early episode terminations.
+
+---
+
+### c) What Worked and Why
+
+* **Multiplicative, strictly non-negative reward in `[0.0, 1.0]`:**
+  Splitting the reward into a base shaping term `0.2 * upright_factor` and a gated bonus `0.8 * (upright_factor * vel_damping * arm_damping)` decoupled swing-up from stabilization. The pendulum can build momentum freely at the bottom without incurring negative penalties, while braking and arm centering are enforced near the top. Keeping `norm_reward=False` in `VecNormalize` preserved this clean scale.
+* **Unnormalized action space `[-15.0, 15.0]` with standard Gaussian noise:**
+  At this scale, PPO's default `std = 1.0` naturally samples gentle initial velocities around **+/- 1 rad/s**, encouraging smooth energy pumping without chattering while retaining the full NEMA 17 speed range for upright braking.
+* **Hybrid 50/50 `reset()` (50% near upright / 50% full circle):**
+  Intermediate angles acted as an automatic reverse curriculum, allowing the policy to gradually extend its capture region from near the top all the way down to a full bottom swing-up.
+* **Balanced PPO stabilization for 50 Hz:**
+  Combining `n_epochs=5`, `target_kl=0.02`, linear `learning_rate` decay (`3e-4 -> 5e-5`) over `1,000,000` timesteps, and an extended `gamma=0.995` (~4-second horizon at 50 Hz) prevented policy collapse and allowed the agent to credit multi-swing energy pumping toward later upright rewards.
+* **Separated diagnostic flags in `step()`:**
+  Logging `stalled` and `arm_limit_hit` independently confirmed clean stepper motor behavior (0% loss of synchronization).
+
+---
+
+### d) Key Design Takeaways
+
+1. **Audit physics before tuning hyperparameters:** When a policy gets stuck in a local optimum or chatters, the root cause is usually a conflict between the reward function, noise scale, and physical dynamics rather than optimizer hyperparameters.
+2. **Avoid patching symptoms with extra penalties:** Adding negative velocity or acceleration terms in swing-up tasks often blocks physically required trajectories or induces harsh bang-bang control.
+3. **Match initial exploration scale to physical action bounds:** Initial `std` must be proportional to the physical action range; otherwise, exploration either turns into violent chattering or collapses prematurely.
