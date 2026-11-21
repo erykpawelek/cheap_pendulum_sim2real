@@ -9,6 +9,17 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 import simulation.envs
 
 
+def linear_schedule(initial_value: float, final_value: float = 5e-5):
+    """
+    Linearly decays the learning rate from initial_value to final_value
+    as progress_remaining goes from 1.0 to 0.0.
+    """
+    def func(progress_remaining: float) -> float:
+        return final_value + progress_remaining * (initial_value - final_value)
+
+    return func
+
+
 def main():
     env_id = "FurutaPendulum-v0"
     model_path = "training/logs/ppo_furuta_pendulum"
@@ -23,39 +34,41 @@ def main():
     # Create 4 parallel environments to collect diverse trajectories simultaneously
     vec_env = make_vec_env(env_id, n_envs=4, seed=42, vec_env_cls=DummyVecEnv)
 
-    # Normalize observations only; keep our [0.0, 1.0] reward untouched (norm_reward=False)
+    # Normalize observations only; keep the [0.0, 1.0] reward scale untouched
+    # gamma=0.995 matches PPO's 4-second effective planning horizon at 50 Hz
     vec_env = VecNormalize(
         vec_env,
         norm_obs=True,
         norm_reward=False,
         clip_obs=10.0,
-        gamma=0.99,
+        gamma=0.995,
     )
 
     # Define custom MLP architecture: 2 hidden layers of 128 neurons each
-    # applied separately to both the Actor (pi) and Critic (vf) networks
     policy_kwargs = dict(
         net_arch=dict(pi=[128, 128], vf=[128, 128])
     )
 
-    # Initialize PPO model with 4 * 1024 = 4096 steps per rollout update
+    # Initialize PPO with KL safeguard, moderate epochs, and standard Gaussian exploration
     model = PPO(
         policy="MlpPolicy",
         env=vec_env,
-        learning_rate=3e-4,
+        learning_rate=linear_schedule(initial_value=3e-4, final_value=5e-5),
         n_steps=1024,
         batch_size=128,
-        n_epochs=10,
-        gamma=0.99,
+        n_epochs=5,
+        gamma=0.995,
         gae_lambda=0.95,
         clip_range=0.2,
+        target_kl=0.02,
         policy_kwargs=policy_kwargs,
         verbose=1,
         seed=42,
+        device="cpu",
     )
 
     print("Starting PPO training process...")
-    model.learn(total_timesteps=700_000)
+    model.learn(total_timesteps=1_000_000)
     print("Training finished successfully!")
 
     # Save trained policy weights and observation normalization statistics
@@ -67,17 +80,18 @@ def main():
     # --- Visual Evaluation ---
     print("\nRunning visual evaluation of the trained PPO policy...")
     eval_env = DummyVecEnv([lambda: gym.make(env_id, render_mode="human")])
-    
+
     # Load observation scaling statistics from training and freeze them
     eval_env = VecNormalize.load(stats_path, eval_env)
     eval_env.training = False
     eval_env.norm_reward = False
 
     obs = eval_env.reset()
-    for _ in range(2000):
+    # Run 1000 steps at 50 Hz (20 seconds of real-time visualization)
+    for _ in range(1000):
         action, _ = model.predict(obs, deterministic=True)
         obs, reward, done, info = eval_env.step(action)
-        time.sleep(0.01)
+        time.sleep(0.02)
         if done[0]:
             obs = eval_env.reset()
 

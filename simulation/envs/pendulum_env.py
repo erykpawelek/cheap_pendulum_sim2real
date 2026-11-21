@@ -41,7 +41,7 @@ class FurutaEnv(gym.Env):
     def __init__(
         self, 
         xml_path=None,
-        frame_skip=20,
+        frame_skip=40,
         render_mode=None
     ):
         super().__init__()
@@ -88,7 +88,7 @@ class FurutaEnv(gym.Env):
 
     def step(self, action):
         """
-        Executes one control step (100 Hz) by running 'frame_skip' physics and 
+        Executes one control step (50 Hz) by running 'frame_skip' physics and 
         stepper motor substeps (2000 Hz) in MuJoCo.
         """
         # Extract scalar target velocity command from action array
@@ -114,18 +114,20 @@ class FurutaEnv(gym.Env):
         # Collect current observations
         obs = self._get_obs()
         
-        # Terminate episode early if the stepper motor stalled (lost steps)
-        terminated = bool(self.stepper.stalled or abs(self.data.qpos[0]) > 2 * np.pi)
+        # Check physical stall and arm rotation limit separately
+        arm_limit_hit = bool(abs(self.data.qpos[0]) > 2 * np.pi)
+        terminated = bool(self.stepper.stalled or arm_limit_hit)
         truncated = False
-        
-        # Compute reward (includes heavy penalty if stalled)
+
+        # Compute reward (returns 0.0 if terminated early)
         reward = self._compute_reward(obs, target_vel, terminated)
-        
-        # Diagnostic metrics useful for debugging and Optuna logging
+
+        # Report true stepper stall separately from arm angle limit violations
         info = {
             "motor_lag_deg": float(np.rad2deg(self.stepper.lag)),
-            "stalled": terminated,
-            "applied_torque": float(self.data.ctrl[0])
+            "stalled": bool(self.stepper.stalled),
+            "arm_limit_hit": arm_limit_hit,
+            "applied_torque": float(self.data.ctrl[0]),
         }
         
         if self.render_mode == "human":
