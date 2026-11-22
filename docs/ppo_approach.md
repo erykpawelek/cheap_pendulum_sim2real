@@ -131,38 +131,35 @@ The `info` dict returned by `step()` contains:
 
 ### 2.7 Reward function
 
-The reward is **strictly non-negative**, bounded in $[0, 1]$, and returns
-$0.0$ immediately if the stepper has stalled:
+The reward is **strictly non-negative**, bounded in $[0, 1]$. When the stepper
+has stalled, $r = 0$; otherwise it is a weighted sum of an upright-posture term
+and a gated "hold-at-the-top" term:
 
 $$
-r =
-\begin{cases}
-0, & \text{if stalled} \\[4pt]
-0.05 \cdot f_\mathrm{up} \;+\; 0.95 \cdot f_\mathrm{up} \cdot d_\mathrm{vel} \cdot d_\mathrm{arm}, & \text{otherwise}
-\end{cases}
+r = 0.05\,f_{\mathrm{up}} + 0.95\,f_{\mathrm{up}}\,d_{\mathrm{vel}}\,d_{\mathrm{arm}}
 $$
 
-with the three factors:
+The three factors are:
 
 **1. Upright-posture factor** $f_\mathrm{up} \in [0, 1]$ — hanging down
 ($\cos\theta = 1$) gives $0$, upright ($\cos\theta = -1$) gives $1$:
 
 $$
-f_\mathrm{up} = \left(\tfrac{1}{2}\left(1 - \cos\theta\right)\right)^{2}
+f_\mathrm{up} = \left(\frac{1 - \cos\theta}{2}\right)^{2}
 $$
 
 **2. Pendulum velocity damping** $d_\mathrm{vel} \in (0, 1]$ — penalises swing
 energy so the agent brakes at the top instead of spinning through it:
 
 $$
-d_\mathrm{vel} = \exp\left(-0.3\,\dot\theta^{2}\right)
+d_\mathrm{vel} = \exp\left(-0.3\,\dot{\theta}^{2}\right)
 $$
 
 **3. Arm centring & control damping** $d_\mathrm{arm} \in (0, 1]$ — keeps the
 arm near zero and smooths both arm speed and the commanded velocity:
 
 $$
-d_\mathrm{arm} = \exp\left(-0.05\,\phi^{2} - 0.005\,\dot\phi^{2} - 0.002\,u^{2}\right)
+d_\mathrm{arm} = \exp\left(-0.05\,\phi^{2} - 0.005\,\dot{\phi}^{2} - 0.002\,u^{2}\right)
 $$
 
 > **Why the 0.05 / 0.95 split:** 95% of the reward is gated behind the product
@@ -265,8 +262,8 @@ steps (20 s) at 50 Hz, resetting on episode end.
 | --- | --- | --- |
 | Action (target arm velocity) | $u$ | $\in [-15, 15]\ \text{rad/s}$ |
 | Upright factor | $f_\mathrm{up}$ | $\left(\frac{1-\cos\theta}{2}\right)^2$ |
-| Velocity damping | $d_\mathrm{vel}$ | $\exp(-0.3\,\dot\theta^2)$ |
-| Arm damping | $d_\mathrm{arm}$ | $\exp(-0.05\phi^2 - 0.005\dot\phi^2 - 0.002u^2)$ |
+| Velocity damping | $d_\mathrm{vel}$ | $\exp(-0.3\,\dot{\theta}^2)$ |
+| Arm damping | $d_\mathrm{arm}$ | $\exp(-0.05\phi^2 - 0.005\dot{\phi}^2 - 0.002u^2)$ |
 | Reward | $r$ | $0.05 f_\mathrm{up} + 0.95 f_\mathrm{up} d_\mathrm{vel} d_\mathrm{arm}$ |
 
 ## 5. PPO Training Conclusions – Furuta Pendulum (MuJoCo + NEMA 17, 50 Hz)
