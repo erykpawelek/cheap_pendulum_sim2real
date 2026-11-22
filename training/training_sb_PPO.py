@@ -1,5 +1,7 @@
 import time
 import gymnasium as gym
+from datetime import datetime
+from pathlib import Path
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.env_util import make_vec_env
@@ -21,9 +23,15 @@ def linear_schedule(initial_value: float, final_value: float = 5e-5):
 
 
 def main():
+
     env_id = "FurutaPendulum-v0"
-    model_path = "training/logs/ppo_furuta_pendulum"
-    stats_path = "training/logs/vec_normalize.pkl"
+    # Date path resolving
+    date = datetime.now()
+    folder_name = date.strftime("%Y-%m-%d_%H-%M-%S")
+    log_dir = Path("training/logs") / folder_name
+    log_dir.mkdir(parents=True, exist_ok=True)
+    model_path = str(log_dir / "ppo_furuta_pendulum")
+    stats_path = str(log_dir / "vec_normalize.pkl")
 
     print("Initializing Furuta pendulum environment for compliance check...")
     raw_env = gym.make(env_id)
