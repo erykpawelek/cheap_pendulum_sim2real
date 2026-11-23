@@ -84,8 +84,8 @@ manually — prefix commands with `uv run` instead.
 > **from the repo root as a module**:
 >
 > ```bash
-> uv run python -m training.training   # ✔ works
-> uv run python training/training.py   # ✘ ModuleNotFoundError: No module named 'simulation'
+> uv run python -m training.training_sb_PPO   # ✔ works
+> uv run python training/training_sb_PPO.py   # ✘ ModuleNotFoundError: No module named 'simulation'
 > ```
 
 ---
@@ -108,6 +108,9 @@ cheap_pendulum_sim2real/
 │
 ├── models/                  # exported/trained model files (placeholder)
 │
+├── docs/                    # project documentation
+│   └── ppo_approach.md      # Gym environment + PPO training spec (reward, action/obs)
+│
 ├── simulation/
 │   ├── envs/
 │   │   ├── __init__.py          # registers the `FurutaPendulum-v0` env
@@ -125,7 +128,7 @@ cheap_pendulum_sim2real/
 │   └── view_precise_mjcf.py # interactive MuJoCo viewer + stepper controller
 │
 └── training/
-    ├── training.py          # PPO training (stable-baselines3 + VecNormalize)
+    ├── training_sb_PPO.py   # PPO training (stable-baselines3 + VecNormalize)
     └── logs/                # trained artifacts (git-ignored)
         ├── ppo_furuta_pendulum.zip
         └── vec_normalize.pkl
@@ -153,16 +156,19 @@ Key facts:
 ## 4. The Gymnasium environment
 
 `simulation/envs/__init__.py` registers `FurutaPendulum-v0` (entry point
-`simulation.envs.pendulum_env:FurutaEnv`, `max_episode_steps=2048`).
+`simulation.envs.pendulum_env:FurutaEnv`, `max_episode_steps=1000`).
 
 | Item         | Value                                                          |
 | ------------ | -------------------------------------------------------------- |
 | Action space | `Box(1)` — target angular velocity of the arm, [-15, 15] rad/s |
 | Observation  | `Box(5)` — `[sin θ, cos θ, θ̇, arm_pos, arm_vel]`               |
-| Control rate | 100 Hz (`frame_skip=20` × 0.5 ms physics timestep)             |
+| Control rate | 50 Hz (`frame_skip=40` × 0.5 ms physics timestep)             |
 | Physics rate | 2000 Hz (`timestep=0.0005`, RK4 integrator)                    |
 | Termination  | stepper stall (lag > 2 full steps) or |arm angle| > 2π          |
 | Reward       | [0, 1] shaping — upright posture + velocity/arm damping        |
+
+Full specification — reward equations, action/observation definitions and PPO
+hyperparameters — is in [`docs/ppo_approach.md`](docs/ppo_approach.md).
 
 Quick check from the repo root:
 
@@ -218,15 +224,17 @@ uv run python -c "import mujoco; m = mujoco.MjModel.from_xml_path('simulation/pe
 ### Train the PPO policy
 
 ```bash
-uv run python -m training.training
+uv run python -m training.training_sb_PPO
 ```
 
 - `check_env()` validates the environment first,
 - 4 parallel environments (`DummyVecEnv`),
 - `VecNormalize` normalises observations only (reward left untouched),
-- PPO (`MlpPolicy`, 700 000 timesteps),
+- PPO (`MlpPolicy`, 1 000 000 timesteps),
 - saves the policy to `training/logs/ppo_furuta_pendulum.zip` and the
   normalisation statistics to `training/logs/vec_normalize.pkl`.
+- full specification (reward function, spaces, hyperparameters) is documented
+  in [`docs/ppo_approach.md`](docs/ppo_approach.md).
 
 ### Evaluate a trained policy
 
