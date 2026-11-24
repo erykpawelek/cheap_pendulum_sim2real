@@ -25,13 +25,21 @@ def linear_schedule(initial_value: float, final_value: float = 5e-5):
 def main():
 
     env_id = "FurutaPendulum-v0"
-    # Date path resolving
+
+    # Timestamped directory in training/logs/ to preserve historical training runs
     date = datetime.now()
     folder_name = date.strftime("%Y-%m-%d_%H-%M-%S")
     log_dir = Path("training/logs") / folder_name
     log_dir.mkdir(parents=True, exist_ok=True)
-    model_path = str(log_dir / "ppo_furuta_pendulum")
-    stats_path = str(log_dir / "vec_normalize.pkl")
+    log_model_path = str(log_dir / "ppo_furuta_pendulum")
+    log_stats_path = str(log_dir / "vec_normalize.pkl")
+
+    # Root-level models/ directory (sibling to training/) storing the latest artifacts
+    # under fixed filenames for convenient evaluation and ONNX export
+    models_dir = Path("models")
+    models_dir.mkdir(parents=True, exist_ok=True)
+    latest_model_path = str(models_dir / "ppo_furuta_pendulum")
+    latest_stats_path = str(models_dir / "vec_normalize.pkl")
 
     print("Initializing Furuta pendulum environment for compliance check...")
     raw_env = gym.make(env_id)
@@ -79,18 +87,24 @@ def main():
     model.learn(total_timesteps=1_000_000)
     print("Training finished successfully!")
 
-    # Save trained policy weights and observation normalization statistics
-    model.save(model_path)
-    vec_env.save(stats_path)
+    # Save archived copy to timestamped training/logs/ folder
+    model.save(log_model_path)
+    vec_env.save(log_stats_path)
+
+    # Save latest copy to root models/ folder for immediate testing and ONNX conversion
+    model.save(latest_model_path)
+    vec_env.save(latest_stats_path)
     vec_env.close()
-    print(f"Saved model to '{model_path}.zip' and normalization stats to '{stats_path}'.")
+
+    print(f"Archived model to '{log_model_path}.zip' and stats to '{log_stats_path}'.")
+    print(f"Updated latest test artifacts in '{models_dir}/'.")
 
     # --- Visual Evaluation ---
     print("\nRunning visual evaluation of the trained PPO policy...")
     eval_env = DummyVecEnv([lambda: gym.make(env_id, render_mode="human")])
 
-    # Load observation scaling statistics from training and freeze them
-    eval_env = VecNormalize.load(stats_path, eval_env)
+    # Load observation scaling statistics from models/ and freeze them
+    eval_env = VecNormalize.load(latest_stats_path, eval_env)
     eval_env.training = False
     eval_env.norm_reward = False
 
