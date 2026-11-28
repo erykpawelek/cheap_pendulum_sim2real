@@ -58,7 +58,7 @@ class FurutaEnv(gym.Env):
         self.data = mujoco.MjData(self.model)
         
         # Number of physics substeps (0.5 ms each) per single Gym control step
-        # frame_skip=20 gives a 10 ms (100 Hz) control loop interval
+        # frame_skip=40 gives a 20 ms (50 Hz) control loop interval
         self.frame_skip = frame_skip
         self.render_mode = render_mode
         
@@ -252,13 +252,13 @@ if __name__ == "__main__":
     obs, info = env.reset()
     print(f"Loaded XML successfully from: {get_default_xml_path()}")
     
-    # Run a 5-second test (500 steps at 100 Hz) with a smooth sinusoidal velocity command
+    # Run a 10-second test (500 steps at 50 Hz) with a smooth sinusoidal velocity command
     for step_idx in range(500):
-        t = step_idx * 0.01
+        t = step_idx * 0.02
         action = np.array([4.0 * np.sin(2.0 * np.pi * 1.0 * t)], dtype=np.float32)
         
         obs, reward, terminated, truncated, info = env.step(action)
-        time.sleep(0.01)
+        time.sleep(0.02)
         
         if terminated:
             print(f"Stepper motor stalled at step {step_idx}! Resetting...")
