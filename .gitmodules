@@ -1,6 +1,6 @@
 [submodule "host"]
 	path = host
-	url = https://github.com/erykpawelek/pendulum_embeded.git
+	url = git@github.com:erykpawelek/pendulum_embeded.git
 [submodule "firmware"]
 	path = embedded
 	url = git@github.com:firiusz123/embedded-pendulum.git
